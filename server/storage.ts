@@ -12,7 +12,7 @@ function normalizeKey(relKey: string): string {
     .replace(/^\/+/, "")
     .trim();
 
-  if (!key || key.split("/").some((part) => part === "..")) {
+  if (!key || key.split("/").some(part => part === "..")) {
     throw new Error("Invalid storage path");
   }
 

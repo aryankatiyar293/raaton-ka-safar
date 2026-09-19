@@ -1,0 +1,1 @@
+ALTER TABLE `listenerPreferences` MODIFY COLUMN `favoriteTrackIds` text NOT NULL;

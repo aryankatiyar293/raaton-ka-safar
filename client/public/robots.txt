@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
+Disallow: /admin
 
 Sitemap: https://raaton-ka-safar-production.up.railway.app/sitemap.xml

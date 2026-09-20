@@ -112,6 +112,7 @@ function Equalizer({ active }: { active: boolean }) {
 export default function Home() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const autoPlayNextRef = useRef(false);
   const previousVolumeRef = useRef(0.72);
   const [visitorKey] = useState(getVisitorKey);
   const tracksQuery = trpc.music.tracks.useQuery();
@@ -224,19 +225,59 @@ export default function Home() {
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
+
+    const shouldAutoPlay = isPlaying || autoPlayNextRef.current;
+    autoPlayNextRef.current = false;
+
     audio.pause();
     audio.src = currentSource || "";
-    audio.load();
+    audio.currentTime = 0;
+
     setCurrentTime(0);
     setDuration(0);
-    setStatusMessage(currentSource ? "Ready when you are" : "Add a local audio file to begin");
+    setStatusMessage(
+      currentSource
+        ? shouldAutoPlay
+          ? "Loading next track…"
+          : "Ready when you are"
+        : "Add a local audio file to begin",
+    );
     setIsLoading(Boolean(currentSource));
-    if (isPlaying && currentSource) {
-      void audio.play().catch(() => {
-        setIsPlaying(false);
-        setStatusMessage("Tap play to start — browsers block autoplay");
-      });
+
+    if (!currentSource) {
+      audio.removeAttribute("src");
+      audio.load();
+      setIsPlaying(false);
+      return;
     }
+
+    const playWhenReady = () => {
+      if (!shouldAutoPlay) {
+        setIsLoading(false);
+        return;
+      }
+
+      void audio
+        .play()
+        .then(() => {
+          setIsPlaying(true);
+          setIsLoading(false);
+          setStatusMessage("Now playing");
+        })
+        .catch((error) => {
+          console.error("Auto-play failed:", error);
+          setIsPlaying(false);
+          setIsLoading(false);
+          setStatusMessage("Tap play to continue");
+        });
+    };
+
+    audio.addEventListener("canplay", playWhenReady, { once: true });
+    audio.load();
+
+    return () => {
+      audio.removeEventListener("canplay", playWhenReady);
+    };
   }, [currentId, currentSource]);
 
   useEffect(() => {
@@ -253,6 +294,7 @@ export default function Home() {
   });
 
   const selectTrack = (trackId: string) => {
+    autoPlayNextRef.current = isPlaying;
     setCurrentId(trackId);
     setStatusMessage("Loading track…");
     setPlaylistOpen(false);
@@ -272,6 +314,9 @@ export default function Home() {
       setStatusMessage("This playlist is empty");
       return;
     }
+
+    // Keep playback continuous when the user skips while a track is playing.
+    autoPlayNextRef.current = isPlaying;
     if (direction === 1 && shuffleOn) {
       const nextQueue = shuffleQueue.length ? shuffleQueue : buildShuffleQueue();
       const nextId = nextQueue[0];
@@ -323,17 +368,38 @@ export default function Home() {
 
   const handleEnded = () => {
     if (repeatMode === "one") {
-      if (audioRef.current) {
-        audioRef.current.currentTime = 0;
-        void audioRef.current.play().catch(() => setIsPlaying(false));
+      const audio = audioRef.current;
+
+      if (audio) {
+        audio.currentTime = 0;
+        void audio
+          .play()
+          .then(() => {
+            setIsPlaying(true);
+            setStatusMessage("Now playing");
+          })
+          .catch((error) => {
+            console.error("Repeat playback failed:", error);
+            setIsPlaying(false);
+            setStatusMessage("Tap play to continue");
+          });
       }
+
       return;
     }
-    if (!shuffleOn && repeatMode === "off" && currentIndex === visibleTracks.length - 1) {
+
+    if (
+      !shuffleOn &&
+      repeatMode === "off" &&
+      currentIndex === visibleTracks.length - 1
+    ) {
       setIsPlaying(false);
       setStatusMessage("Playlist complete — press play to hear it again");
       return;
     }
+
+    // The next source must finish loading before playback starts.
+    autoPlayNextRef.current = true;
     skipRelative(1);
   };
 

@@ -1226,3 +1226,163 @@ input[type='range']::-moz-range-thumb { width: 9px; height: 9px; border: 2px sol
     transform: translate(-50%, 0) scale(1);
   }
 }
+
+/* =========================================================
+   MOBILE PLAYER — FINAL CENTERING FIX
+   Fixes horizontal clipping caused by old rise-in animation
+   ========================================================= */
+
+@media (max-width: 760px) {
+
+  /* Kill old desktop animation because it overrides
+     translateX(-50%) on the mobile layout. */
+  .hero-copy,
+  .player-stage {
+    animation: none !important;
+  }
+
+  /* Keep hero content truly centered */
+  .hero-copy {
+    left: 50% !important;
+    right: auto !important;
+    width: calc(100% - 24px) !important;
+    transform: translateX(-50%) !important;
+  }
+
+  /* Compact floating music player */
+  .player-stage {
+    left: 50% !important;
+    right: auto !important;
+
+    width: calc(100% - 20px) !important;
+    max-width: 370px !important;
+
+    bottom: 12% !important;
+
+    transform: translateX(-50%) !important;
+  }
+
+  .player-card {
+    width: 100% !important;
+    overflow: hidden;
+    border-radius: 22px !important;
+  }
+
+  /* Smaller track layout */
+  .player-main {
+    grid-template-columns: 64px minmax(0, 1fr) !important;
+    gap: 10px !important;
+
+    padding: 10px 12px 6px !important;
+  }
+
+  .art-wrap,
+  .album-art {
+    width: 64px !important;
+    height: 64px !important;
+  }
+
+  .album-art.is-playing {
+    animation: none !important;
+  }
+
+  .track-category {
+    font-size: 7px !important;
+    line-height: 1.2;
+  }
+
+  .track-copy h2 {
+    max-width: 100% !important;
+    margin: 2px 0 2px !important;
+
+    font-size: 15px !important;
+    line-height: 1.1 !important;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .track-copy p {
+    font-size: 8px !important;
+    line-height: 1.2;
+  }
+
+  /* Progress */
+  .progress-wrap {
+    margin: 0 13px !important;
+  }
+
+  .time-row {
+    font-size: 7px !important;
+  }
+
+  input[type="range"] {
+    margin-top: 7px !important;
+    height: 2px !important;
+  }
+
+  /* Controls */
+  .main-controls {
+    justify-content: center !important;
+    gap: 4px !important;
+    margin: 5px 0 0 !important;
+  }
+
+  .control-button {
+    width: 26px !important;
+    height: 26px !important;
+  }
+
+  .play-button {
+    width: 42px !important;
+    height: 42px !important;
+  }
+
+  .player-shadow-label {
+    margin: 4px 0 8px !important;
+    font-size: 7px !important;
+    white-space: nowrap;
+  }
+}
+
+
+/* Small phones */
+@media (max-width: 390px) {
+
+  .player-stage {
+    width: calc(100% - 16px) !important;
+    max-width: 350px !important;
+    bottom: 11% !important;
+  }
+
+  .player-main {
+    grid-template-columns: 58px minmax(0, 1fr) !important;
+    gap: 9px !important;
+    padding: 9px 10px 5px !important;
+  }
+
+  .art-wrap,
+  .album-art {
+    width: 58px !important;
+    height: 58px !important;
+  }
+
+  .track-copy h2 {
+    font-size: 14px !important;
+  }
+
+  .control-button {
+    width: 24px !important;
+    height: 24px !important;
+  }
+
+  .play-button {
+    width: 39px !important;
+    height: 39px !important;
+  }
+
+  .player-shadow-label {
+    font-size: 6px !important;
+  }
+}

@@ -112,7 +112,7 @@ function Equalizer({ active }: { active: boolean }) {
 export default function Home() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const autoPlayNextRef = useRef(false);
+  const autoPlayAfterLoadRef = useRef(false);
   const previousVolumeRef = useRef(0.72);
   const [visitorKey] = useState(getVisitorKey);
   const tracksQuery = trpc.music.tracks.useQuery();
@@ -226,58 +226,24 @@ export default function Home() {
     const audio = audioRef.current;
     if (!audio) return;
 
-    const shouldAutoPlay = isPlaying || autoPlayNextRef.current;
-    autoPlayNextRef.current = false;
-
     audio.pause();
     audio.src = currentSource || "";
     audio.currentTime = 0;
 
     setCurrentTime(0);
     setDuration(0);
-    setStatusMessage(
-      currentSource
-        ? shouldAutoPlay
-          ? "Loading next track…"
-          : "Ready when you are"
-        : "Add a local audio file to begin",
-    );
+    setStatusMessage(currentSource ? "Ready when you are" : "Add a local audio file to begin");
     setIsLoading(Boolean(currentSource));
 
     if (!currentSource) {
       audio.removeAttribute("src");
       audio.load();
       setIsPlaying(false);
+      autoPlayAfterLoadRef.current = false;
       return;
     }
 
-    const playWhenReady = () => {
-      if (!shouldAutoPlay) {
-        setIsLoading(false);
-        return;
-      }
-
-      void audio
-        .play()
-        .then(() => {
-          setIsPlaying(true);
-          setIsLoading(false);
-          setStatusMessage("Now playing");
-        })
-        .catch((error) => {
-          console.error("Auto-play failed:", error);
-          setIsPlaying(false);
-          setIsLoading(false);
-          setStatusMessage("Tap play to continue");
-        });
-    };
-
-    audio.addEventListener("canplay", playWhenReady, { once: true });
     audio.load();
-
-    return () => {
-      audio.removeEventListener("canplay", playWhenReady);
-    };
   }, [currentId, currentSource]);
 
   useEffect(() => {
@@ -294,7 +260,7 @@ export default function Home() {
   });
 
   const selectTrack = (trackId: string) => {
-    autoPlayNextRef.current = isPlaying;
+    autoPlayAfterLoadRef.current = isPlaying;
     setCurrentId(trackId);
     setStatusMessage("Loading track…");
     setPlaylistOpen(false);
@@ -309,14 +275,17 @@ export default function Home() {
     return remaining;
   };
 
-  const skipRelative = (direction: 1 | -1) => {
+  const skipRelative = (direction: 1 | -1, autoplayOverride?: boolean) => {
     if (!visibleTracks.length) {
       setStatusMessage("This playlist is empty");
       return;
     }
 
-    // Keep playback continuous when the user skips while a track is playing.
-    autoPlayNextRef.current = isPlaying;
+    // User-initiated skip while playing should continue playback.
+    // End-of-track can explicitly force autoplay even though the <audio>
+    // element has just fired the ended/pause events and isPlaying may be false.
+    autoPlayAfterLoadRef.current = autoplayOverride ?? isPlaying;
+
     if (direction === 1 && shuffleOn) {
       const nextQueue = shuffleQueue.length ? shuffleQueue : buildShuffleQueue();
       const nextId = nextQueue[0];
@@ -326,6 +295,7 @@ export default function Home() {
         return;
       }
     }
+
     const nextIndex = (currentIndex + direction + visibleTracks.length) % visibleTracks.length;
     setCurrentId(visibleTracks[nextIndex].id);
   };
@@ -393,14 +363,15 @@ export default function Home() {
       repeatMode === "off" &&
       currentIndex === visibleTracks.length - 1
     ) {
+      autoPlayAfterLoadRef.current = false;
       setIsPlaying(false);
       setStatusMessage("Playlist complete — press play to hear it again");
       return;
     }
 
-    // The next source must finish loading before playback starts.
-    autoPlayNextRef.current = true;
-    skipRelative(1);
+    // The ended event can be followed by onPause, which makes isPlaying false.
+    // Explicitly force autoplay for the next track so skipRelative cannot clear it.
+    skipRelative(1, true);
   };
 
   const toggleMute = () => {
@@ -472,7 +443,22 @@ export default function Home() {
         onPause={() => setIsPlaying(false)}
         onEnded={handleEnded}
         onWaiting={() => setIsLoading(true)}
-        onCanPlay={() => setIsLoading(false)}
+        onCanPlay={(event) => {
+          setIsLoading(false);
+          if (!autoPlayAfterLoadRef.current) return;
+          autoPlayAfterLoadRef.current = false;
+          void event.currentTarget
+            .play()
+            .then(() => {
+              setIsPlaying(true);
+              setStatusMessage("Now playing");
+            })
+            .catch((error) => {
+              console.error("Automatic next-track playback failed:", error);
+              setIsPlaying(false);
+              setStatusMessage("Tap play to continue");
+            });
+        }}
         onError={() => { setIsLoading(false); setIsPlaying(false); setStatusMessage("Audio file missing — use Load local track or update the config"); }}
         aria-label="Broken Songs audio player"
       />
